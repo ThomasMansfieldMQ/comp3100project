@@ -5,19 +5,32 @@ public class MyClient {
 	public static void main(String[] args) {
 		try {
 			Socket s = new Socket("localhost",6666);
-			DataInputStream in = new DataInputStream(s.getInputStream());
+			BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
 			DataOutputStream out = new DataOutputStream(s.getOutputStream());
 			
-			out.writeUTF("Hello");
-			System.out.println("Sent: Hello");
+			out.write(("HELO\n").getBytes());
+			System.out.println("HELO");
 			
-			String str = (String)in.readUTF();
+			String str = (String)in.readLine();
 			System.out.println("Received: " + str);
 			
-			out.writeUTF("Bye");
-			System.out.println("Sent: Bye");
+			String username = System.getProperty("user.name");
+			out.write(("AUTH\n" + username + "\n").getBytes());
+			System.out.println("Sent: QUIT");
 			
-			str = (String)in.readUTF();
+			str = (String)in.readLine();
+			System.out.println("Received: " + str);
+			
+			out.write(("REDY\n").getBytes());
+			System.out.println("Sent: REDY");
+
+			str = (String)in.readLine();
+			System.out.println("Received: " + str);
+			
+			out.write(("QUIT\n").getBytes());
+			System.out.println("Sent: QUIT");
+			
+			str = (String)in.readLine();
 			System.out.println("Received: " + str);
 			
 			s.close();

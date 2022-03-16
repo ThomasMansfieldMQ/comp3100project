@@ -6,20 +6,34 @@ public class MyServer {
 		ServerSocket ss = new ServerSocket (6666);
 		try{
 			Socket s = ss.accept(); //establishes connection				
-			DataInputStream in = new DataInputStream(s.getInputStream());
+			BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
 			DataOutputStream out = new DataOutputStream(s.getOutputStream());
 			
-			String str = (String)in.readUTF();
+			String str = (String)in.readLine();
 			System.out.println("Received: " + str);
 			
-			out.writeUTF("G'Day");
-			System.out.println("Sent: G'Day");
+			out.write(("OK\n").getBytes());
+			System.out.println("Sent: OK");
 			
-			str = (String)in.readUTF();
+			str = (String)in.readLine();
+			System.out.println("Received: " + str);
+			str = (String)in.readLine();
+			System.out.println("Welcome " + str + "!");
+			
+			out.write(("OK\n").getBytes());
+			System.out.println("Sent: QUIT");
+			
+			str = (String)in.readLine();
 			System.out.println("Received: " + str);
 			
-			out.writeUTF("Bye");
-			System.out.println("Sent: Bye");
+			out.write(("NONE\n").getBytes());
+			System.out.println("Sent: NONE");
+
+			str = (String)in.readLine();
+			System.out.println("Received: " + str);
+			
+			out.write(("QUIT\n").getBytes());
+			System.out.println("Sent: QUIT");
 							
 			s.close();
 			
