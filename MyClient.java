@@ -4,19 +4,19 @@ import java.net.*;
 public class MyClient {
 	public static void main(String[] args) {
 		try {
-			Socket s = new Socket("localhost",6666);
+			Socket s = new Socket("localhost",60000);
 			BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
 			DataOutputStream out = new DataOutputStream(s.getOutputStream());
 			
 			out.write(("HELO\n").getBytes());
-			System.out.println("HELO");
+			System.out.println("Sent: HELO");
 			
 			String str = (String)in.readLine();
 			System.out.println("Received: " + str);
 			
 			String username = System.getProperty("user.name");
-			out.write(("AUTH\n" + username + "\n").getBytes());
-			System.out.println("Sent: QUIT");
+			out.write(("AUTH " + username + "\n").getBytes());
+			System.out.println("Sent: AUTH");
 			
 			str = (String)in.readLine();
 			System.out.println("Received: " + str);
