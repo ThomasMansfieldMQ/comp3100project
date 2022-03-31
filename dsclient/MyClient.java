@@ -65,25 +65,47 @@ public class MyClient {
 				}
 			});
 
-			Server largest = serverlist.get(0);
+			// Determine largest server type
+			String largestType = serverlist.get(0).serverType;
+			List<Server> largestServers = new LinkedList<Server>();
 
-			// Assign 1 job to the largest server.
+			for (Server server : serverlist) {
+				if (server.serverType.equals(largestType)) {
+					largestServers.add(server);
+				} else break;
+			}
+
 			out.write(("REDY\n").getBytes());
 			System.out.println("Sent: REDY");
 
 			str = (String)in.readLine();
 			System.out.println("Received: " + str);
 
-			int jobID = Integer.parseInt(str.split(" ")[2]);
-
-			String command = "SCHD " + jobID + " " + largest.serverType + " " + largest.serverID + "\n";
-			out.write(command.getBytes());
-			System.out.print("Sent: " + command);
-
-			str = (String)in.readLine();
-			System.out.println("Received: " + str);
-
+			int serverIndex = 0;
 			// Assign jobs to the largest servers (LRR) (WIP)
+			do {
+				String[] splStrings = str.split(" ");
+
+				if (splStrings[0].equals("JOBN") || splStrings[0].equals("JOBP")){ // Job Handling
+					Server currentServer = largestServers.get(serverIndex);
+					String command = "SCHD " + splStrings[2] + " " + currentServer.serverType + " " + currentServer.serverID + "\n";
+
+					out.write(command.getBytes());
+					System.out.print("Sent: " + command);
+
+					str = (String)in.readLine();
+					System.out.println("Received: " + str);
+
+					serverIndex++;
+					serverIndex = serverIndex % largestServers.size();
+				}
+
+				out.write(("REDY\n").getBytes());
+				System.out.println("Sent: REDY");
+
+				str = (String)in.readLine();
+				System.out.println("Received: " + str);
+			} while (!str.equals("NONE"));
 
 			// Exit
 			out.write(("QUIT\n").getBytes());
