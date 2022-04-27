@@ -1,4 +1,4 @@
-package dsclient;
+
 
 public class Server{
     String serverType;
