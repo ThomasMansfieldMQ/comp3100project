@@ -2,6 +2,7 @@ import java.io.*;
 import java.net.*;
 import java.util.List;
 import java.util.LinkedList;
+import java.util.Comparator;
 
 public class MyClient {
 	public static void main(String[] args) {
@@ -15,36 +16,32 @@ public class MyClient {
 			out.write(("HELO\n").getBytes());
 			
 			String str = (String)in.readLine();
-			// System.out.println("Reached Handshake");
 			
 			//Authenticate
 			String username = System.getProperty("user.name");
 			out.write(("AUTH " + username + "\n").getBytes());
 			
 			str = (String)in.readLine();
-			// System.out.println("Reached Authenticate");
 
 			//Ready
 			out.write(("REDY\n").getBytes());
 
 			str = (String)in.readLine();
-			// System.out.println("Reached Ready");
 
 			String job = String.valueOf(str);
 
-			// Assign jobs to the largest servers (LRR)
+			// Assign jobs 
 			while (!job.equals("NONE")) {
 				String[] splStrings = job.split(" ");
+				int jobSize = Integer.parseInt(splStrings[4]);
 
 				if (splStrings[0].equals("JOBN") || splStrings[0].equals("JOBP")){ // Hand JOBN and JOBP commands, ignore JCPD commands
 					//Get Servers
-					out.write(("GETS Capable " + splStrings[4] + " " + splStrings[5] + " " + splStrings[6] + "\n").getBytes());
+					out.write(("GETS All \n").getBytes());
 
 					str = (String)in.readLine();
 
 					out.write(("OK\n").getBytes());
-
-					// System.out.println("Reached Get Servers");
 
 					int numOfServers = Integer.parseInt(str.split(" ")[1]); //Get number of servers sent over DATA
 					List<Server> serverlist = new LinkedList<>();
@@ -53,26 +50,40 @@ public class MyClient {
 						str = (String)in.readLine(); // Read input, which contains server data
 						String[] splString = str.split(" "); // Split data
 						serverlist.add(new Server(splString[0], splString[1], splString[2], splString[3], splString[4], splString[5], splString[6], splString[7]));
-						// System.out.println("Added Server");
 					}
 
 					out.write(("OK\n").getBytes());
-					// System.out.println("Reached Serverlist");
 			
 					str = (String)in.readLine();
-					String command = "SCHD " + splStrings[2] + " " + serverlist.get(0).serverType + " " + serverlist.get(0).serverID + "\n";
+
+					//Sort servers in ascending size
+					serverlist.sort(new Comparator<Server>() {
+						public int compare(Server a, Server b) {
+							return b.coreNum - a.coreNum;
+						}
+					});
+
+					int serverIndex = -1;
+					
+					for (int i = 0; i < serverlist.size() && serverIndex == -1; i++) {
+						if (serverlist.get(i).coreNum >= jobSize) {
+							serverIndex = i;
+						}
+					}
+
+					if (serverIndex == -1) serverIndex = 0;
+
+					String command = "SCHD " + splStrings[2] + " " + serverlist.get(serverIndex).serverType + " " + serverlist.get(serverIndex).serverID + "\n";
 
 					out.write(command.getBytes()); // Sends SCHD command to current server in the rotation
 
 					str = (String)in.readLine(); // Get the OK command
-					// System.out.println("Reached Schedule Command");
 				}
 
 				out.write(("REDY\n").getBytes());
 
 				str = (String)in.readLine();
 				job = String.valueOf(str);
-				// System.out.println("Reached Ready");
 			}
 
 			// Exit
