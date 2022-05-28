@@ -33,7 +33,7 @@ public class MyClient {
 			while (!job.equals("NONE")) {
 				String[] jobData = job.split(" ");
 
-				if (jobData[0].equals("JOBN") || jobData[0].equals("JOBP")){ // Hand JOBN and JOBP commands
+				if (jobData[0].equals("JOBN") || jobData[0].equals("JOBP")){ // Handle JOBN and JOBP commands
 					//Get Servers				 Core				Memory			   Disk
 					out.write(("GETS Capable " + jobData[4] + " " + jobData[5] + " " + jobData[6] + "\n").getBytes());
 					str = (String)in.readLine();
@@ -58,77 +58,54 @@ public class MyClient {
 					int bestFit = 99; //Holds best fit
 
 					// Enumerate through servers until a suitable one is found
-					while (serverIndex == -1){
-						for (int i = 0; i < serverlist.size(); i++) {
-							Server currentServer = serverlist.get(i);				
+					for (int i = 0; i < serverlist.size(); i++) {
+						Server currentServer = serverlist.get(i);				
+						int fitness = currentServer.coreNum - jobSize; //Fitness value
+
+						//Find a server that is the best fit
+						if (fitness < bestFit && fitness >= 0) {
+							bestFit = fitness;
+							serverIndex = i;
+						}
+					}
+
+					if (serverIndex == -1) {
+						boolean solutionFound = false;
+						//Enumerate through servers and see if they would pass Best-Fit
+						for (int i = 0; i < serverlist.size() && !solutionFound; i++) {		
+							Server currentServer = serverlist.get(i);			
 							int fitness = currentServer.coreNum - jobSize; //Fitness value
 
-							//Find a server that is the best fit
 							if (fitness < bestFit) {
-								if (fitness < 0) {
-									String command = "LSTJ " + currentServer.serverType + " " + currentServer.serverID + "\n";
-									out.write(command.getBytes()); //Send LSTJ command
-									str = (String)in.readLine(); //Get the DATA command
+								//If yes, the problem is likely because there are servers capable of EVENTUALLY running the job,
+								//but not immediately. Check if server is capable of eventually running the job.
 
-									int noJobs = Integer.parseInt(str.split(" ")[1]);
-									int usedCores = 0;
+								String command = "LSTJ " + currentServer.serverType + " " + currentServer.serverID + "\n";
+								out.write(command.getBytes()); //Send LSTJ command
+								str = (String)in.readLine(); //Get the DATA command
 
-									String[][] jobs = new String[noJobs][8];
+								int noJobs = Integer.parseInt(str.split(" ")[1]);
+								int usedCores = 0;
 
-									out.write(("OK\n").getBytes());
+								out.write(("OK\n").getBytes());
 
-									//Save jobs
-									for (int j = 0; j < noJobs; j++) {
-										str = (String)in.readLine(); // Read input, which contains job data
-										String[] split = str.split(" "); // Split data
-										
-										jobs[j] = split;
-										usedCores += Integer.parseInt(jobs[j][5]);
-									}
+								for (int j = 0; j < noJobs; j++) {
+									str = (String)in.readLine(); // Read input, which contains job data
+									String[] split = str.split(" "); // Split data
 
-									out.write(("OK\n").getBytes());
-									str = (String)in.readLine();
+									usedCores += Integer.parseInt(split[5]); // Cores used by job
+								}
 
-									// Determine if server has enough cores to run the job, and migrate the currently running jobs to a different
-									// server to make room.
-									if ((usedCores + currentServer.coreNum) >= jobSize) {
-										bestFit = usedCores + currentServer.coreNum - fitness;
-										serverIndex = i;
+								out.write(("OK\n").getBytes());
+								str = (String)in.readLine();
 
-										for (int j = 0; j < noJobs; j++) {
-											if (jobs[j][1] == "2"){
-												int migrationIndex = serverIndex; //Holds index of the server to be used
-												int migrationFit = 99; //Holds best fit
-						
-												// Enumerate through servers until a suitable one is found
-												for (int k = 0; k < serverlist.size(); k++) {
-													Server migrationServer = serverlist.get(k);				
-													int f = migrationServer.coreNum - Integer.parseInt(jobs[j][5]); //Fitness value
-
-													//Find a server that is the best fit
-													if (f < migrationFit && f >= 0) {
-														migrationFit = f;
-														migrationIndex = k;
-													}
-												}
-
-												if (migrationIndex != serverIndex) {
-													Server migrationServer = serverlist.get(migrationIndex);
-													command = "MIGJ " + jobs[j][0] + " " + currentServer.serverType + " " + currentServer.serverID + " " + migrationServer.serverType + " " + migrationServer.serverID + "\n";
-
-													out.write(command.getBytes()); // Sends MIGJ command to current server in the rotation
-
-													str = (String)in.readLine(); // Get the OK command
-												}
-											}
-										}
-									}
-								} else {
-									bestFit = fitness;
+								// Determine if server can eventually run the job, and save its index if yes.
+								if ((usedCores + currentServer.coreNum) >= jobSize) {
 									serverIndex = i;
+									solutionFound = true;
 								}
 							}
-						}
+						}	
 					}
 
 					String command = "SCHD " + jobData[2] + " " + serverlist.get(serverIndex).serverType + " " + serverlist.get(serverIndex).serverID + "\n";
@@ -136,8 +113,79 @@ public class MyClient {
 					out.write(command.getBytes()); // Sends SCHD command to current server in the rotation
 
 					str = (String)in.readLine(); // Get the OK command
-				} else if (jobData[0].equals("JCPL")) {
-					//search for waiting jobs that can be transfered to a new server
+				} else if (jobData[0].equals("JCPL")) {//search for waiting jobs that can be transfered to the server that was just freed
+					//Get Servers				 Core				Memory			   Disk
+					out.write(("GETS All\n").getBytes());
+					str = (String)in.readLine();
+					out.write(("OK\n").getBytes());
+
+					int numOfServers = Integer.parseInt(str.split(" ")[1]); //Get number of servers sent over DATA
+					List<Server> serverlist = new LinkedList<>();
+					Server targetServer = new Server("0","0","0","0","0","0","0","0","0");
+
+					for (int i = 0; i < numOfServers; i++){ //Loop through until all servers have been recorded
+						str = (String)in.readLine(); // Read input, which contains server data
+						String[] serverData = str.split(" "); // Split data
+						serverlist.add(new Server(serverData[0], serverData[1], serverData[2], serverData[3], serverData[4], serverData[5], serverData[6], 
+							serverData[7], serverData[8]));
+						if (serverlist.get(i).serverType.equals(jobData[3]) && serverlist.get(i).serverID == Integer.parseInt(jobData[4])) {
+							targetServer = serverlist.get(i);
+						}
+					}
+
+					out.write(("OK\n").getBytes());
+					str = (String)in.readLine();
+
+					if (targetServer.serverType.equals("0")) {
+						System.out.println("ERROR: Source server for JCPL does not exist");
+					} else {
+						//Search server-by-server for a waiting job and try to assign it to the freed-up server
+						boolean migrationComplete = false;
+
+						for (int i = 0; i < serverlist.size() && !migrationComplete; i++) {
+							Server currentServer = serverlist.get(i);
+
+							if (!currentServer.equals(targetServer)){ //skip target server
+								if (currentServer.waitingJobs > 0) {
+									String command = "LSTJ " + currentServer.serverType + " " + currentServer.serverID + "\n";
+									out.write(command.getBytes()); //Send LSTJ command
+									str = (String)in.readLine(); //Get the DATA command
+	
+									int noJobs = Integer.parseInt(str.split(" ")[1]);
+									String[][] jobs = new String[noJobs][8];
+	
+									out.write(("OK\n").getBytes());
+	
+									for (int j = 0; j < noJobs; j++) {
+										str = (String)in.readLine(); // Read input, which contains job data
+										String[] split = str.split(" "); // Split data
+										jobs[j] = split; // Save job data to array
+									}
+	
+									out.write(("OK\n").getBytes());
+									str = (String)in.readLine();
+	
+									for (int j = 0; j < noJobs && !migrationComplete; j++) {
+										if (jobs[j][1].equals("1")){ //job is waiting
+											// Check to see whether the target server is capable of running the job.
+											int jobSize = Integer.parseInt(jobs[j][5]);
+											int jobMem = Integer.parseInt(jobs[j][6]);
+											int jobDisk = Integer.parseInt(jobs[j][7]);
+
+											// If server is capable of running the job immediately, migrate the job
+											if (jobSize <= targetServer.coreNum && jobMem <= targetServer.memory && jobDisk <= targetServer.diskSize) {
+												command = "MIGJ " + jobs[j][0] + " " + currentServer.serverType + " " + currentServer.serverID + " " + targetServer.serverType + " " + targetServer.serverID + "\n";
+												out.write(command.getBytes());
+												str = (String)in.readLine();
+
+												migrationComplete = true;
+											}
+										}
+									}
+								}
+							} 
+						}
+					}
 				}
 
 				out.write(("REDY\n").getBytes());
